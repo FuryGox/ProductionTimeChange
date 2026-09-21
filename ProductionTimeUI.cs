@@ -8,6 +8,7 @@ namespace ProductionTimeChange
     public static class ProductionTimeUI
     {
         public static bool IsOpen = false;
+        public static bool IsInputFocused { get; private set; } = false;
 
         private static Rect windowRect = new Rect(80, 60, 820, 580);
         private static Vector2 scrollPosition = Vector2.zero;
@@ -34,6 +35,10 @@ namespace ProductionTimeChange
         public static void Toggle()
         {
             IsOpen = !IsOpen;
+            if (!IsOpen)
+            {
+                IsInputFocused = false;
+            }
             if (IsOpen && !CardTimeManager.IsInitialized)
             {
                 // Thử khởi tạo lại nếu chưa xong
@@ -55,7 +60,11 @@ namespace ProductionTimeChange
 
         public static void Draw()
         {
-            if (!IsOpen) return;
+            if (!IsOpen)
+            {
+                IsInputFocused = false;
+                return;
+            }
 
             InitStyles();
 
@@ -63,19 +72,41 @@ namespace ProductionTimeChange
             windowRect.x = Mathf.Clamp(windowRect.x, 0, Screen.width - windowRect.width);
             windowRect.y = Mathf.Clamp(windowRect.y, 0, Screen.height - windowRect.height);
 
-            GUI.backgroundColor = Color.white;
-            windowRect = GUI.Window(987654, windowRect, DrawWindow, "⏱ QUẢN LÝ THỜI GIAN SẢN XUẤT (Production Time Manager)");
+            GUI.backgroundColor = ProductionTimeConfig.BackgroundColor;
+            windowRect = GUI.Window(987654, windowRect, DrawWindow, "⏱ Production Time Manager");
+
+            string focused = GUI.GetNameOfFocusedControl();
+            IsInputFocused = !string.IsNullOrEmpty(focused);
+        }
+
+        public static void RefreshStyles()
+        {
+            titleStyle = null;
+            headerStyle = null;
+            itemTitleStyle = null;
+            itemDetailStyle = null;
+            saveButtonStyle = null;
+            resetButtonStyle = null;
+            tabActiveStyle = null;
+            tabInactiveStyle = null;
+            darkBackground = null;
+            tabActiveBackground = null;
+            tabInactiveBackground = null;
         }
 
         private static void InitStyles()
         {
             if (titleStyle != null) return;
 
-            darkBackground = MakeTex(2, 2, new Color(0.12f, 0.13f, 0.15f, 0.98f));
+            Color bgCol = ProductionTimeConfig.BackgroundColor;
+            Color primaryCol = ProductionTimeConfig.PrimaryColor;
+            Color textCol = ProductionTimeConfig.TextColor;
+
+            darkBackground = MakeTex(2, 2, bgCol);
             greenBackground = MakeTex(2, 2, new Color(0.18f, 0.65f, 0.32f, 1f));
             redBackground = MakeTex(2, 2, new Color(0.72f, 0.22f, 0.22f, 1f));
-            tabActiveBackground = MakeTex(2, 2, new Color(0.24f, 0.44f, 0.85f, 1f));
-            tabInactiveBackground = MakeTex(2, 2, new Color(0.2f, 0.22f, 0.25f, 1f));
+            tabActiveBackground = MakeTex(2, 2, primaryCol);
+            tabInactiveBackground = MakeTex(2, 2, new Color(bgCol.r * 1.5f + 0.05f, bgCol.g * 1.5f + 0.05f, bgCol.b * 1.5f + 0.05f, 1f));
 
             titleStyle = new GUIStyle(GUI.skin.label)
             {
@@ -83,7 +114,7 @@ namespace ProductionTimeChange
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter
             };
-            titleStyle.normal.textColor = Color.white;
+            titleStyle.normal.textColor = textCol;
 
             headerStyle = new GUIStyle(GUI.skin.label)
             {
@@ -91,21 +122,21 @@ namespace ProductionTimeChange
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleLeft
             };
-            headerStyle.normal.textColor = new Color(0.85f, 0.85f, 0.9f, 1f);
+            headerStyle.normal.textColor = new Color(textCol.r * 0.9f, textCol.g * 0.9f, textCol.b * 0.95f, textCol.a);
 
             itemTitleStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 13,
                 fontStyle = FontStyle.Bold
             };
-            itemTitleStyle.normal.textColor = Color.white;
+            itemTitleStyle.normal.textColor = textCol;
 
             itemDetailStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 11,
                 fontStyle = FontStyle.Italic
             };
-            itemDetailStyle.normal.textColor = new Color(0.7f, 0.75f, 0.8f, 1f);
+            itemDetailStyle.normal.textColor = new Color(textCol.r * 0.75f, textCol.g * 0.8f, textCol.b * 0.85f, textCol.a * 0.9f);
 
             saveButtonStyle = new GUIStyle(GUI.skin.button)
             {
@@ -139,7 +170,7 @@ namespace ProductionTimeChange
                 fontStyle = FontStyle.Normal
             };
             tabInactiveStyle.normal.background = tabInactiveBackground;
-            tabInactiveStyle.normal.textColor = new Color(0.8f, 0.8f, 0.8f, 1f);
+            tabInactiveStyle.normal.textColor = new Color(textCol.r * 0.8f, textCol.g * 0.8f, textCol.b * 0.8f, textCol.a);
         }
 
         private static void DrawWindow(int windowID)
@@ -157,9 +188,10 @@ namespace ProductionTimeChange
 
             // 1. THANH TÌM KIẾM
             GUILayout.BeginHorizontal();
-            GUILayout.Label("🔍 Tìm kiếm:", GUILayout.Width(75));
+            GUILayout.Label("🔍 Search:", GUILayout.Width(75));
+            GUI.SetNextControlName("SearchField");
             searchQuery = GUILayout.TextField(searchQuery, GUILayout.Height(24));
-            if (GUILayout.Button("Xoá", GUILayout.Width(50), GUILayout.Height(24)))
+            if (GUILayout.Button("Clear", GUILayout.Width(50), GUILayout.Height(24)))
             {
                 searchQuery = "";
             }
@@ -169,21 +201,21 @@ namespace ProductionTimeChange
 
             // 2. TABS DANH MỤC
             GUILayout.BeginHorizontal();
-            DrawCategoryTab("Tất cả", CardCategory.All);
-            DrawCategoryTab("Chế tạo (Blueprint)", CardCategory.Blueprint);
-            DrawCategoryTab("Thu hoạch (Harvest)", CardCategory.Harvestable);
-            DrawCategoryTab("Động vật (Animal)", CardCategory.Animal);
-            DrawCategoryTab("Khác", CardCategory.Other);
+            DrawCategoryTab("All", CardCategory.All);
+            DrawCategoryTab("Blueprint", CardCategory.Blueprint);
+            DrawCategoryTab("Harvestable", CardCategory.Harvestable);
+            DrawCategoryTab("Animal", CardCategory.Animal);
+            DrawCategoryTab("Other", CardCategory.Other);
             GUILayout.EndHorizontal();
 
             GUILayout.Space(8);
 
             // 3. TIÊU ĐỀ CỘT
             GUILayout.BeginHorizontal("box");
-            GUILayout.Label("Thẻ / Công thức", headerStyle, GUILayout.Width(380));
-            GUILayout.Label("Gốc", headerStyle, GUILayout.Width(70));
-            GUILayout.Label("Thời gian (giây)", headerStyle, GUILayout.Width(130));
-            GUILayout.Label("Thao tác", headerStyle, GUILayout.Width(90));
+            GUILayout.Label("Card / Recipe", headerStyle, GUILayout.Width(380));
+            GUILayout.Label("Default", headerStyle, GUILayout.Width(70));
+            GUILayout.Label("Time (s)", headerStyle, GUILayout.Width(130));
+            GUILayout.Label("Action", headerStyle, GUILayout.Width(90));
             GUILayout.EndHorizontal();
 
             // 4. DANH SÁCH THẺ (SCROLLVIEW)
@@ -207,7 +239,7 @@ namespace ProductionTimeChange
 
             if (filtered.Count == 0)
             {
-                GUILayout.Label("Không tìm thấy thẻ nào phù hợp.", GUILayout.Height(50));
+                GUILayout.Label("No matching cards found.", GUILayout.Height(50));
             }
             else
             {
@@ -228,6 +260,7 @@ namespace ProductionTimeChange
                     GUILayout.Label($"{entry.OriginalTime:0.#}s", GUILayout.Width(70), GUILayout.Height(28));
 
                     // Cột 3: Ô nhập thời gian mới
+                    GUI.SetNextControlName($"TimeInput_{entry.CardId}");
                     string newInput = GUILayout.TextField(entry.InputBuffer, GUILayout.Width(100), GUILayout.Height(24));
                     if (newInput != entry.InputBuffer)
                     {
@@ -240,10 +273,10 @@ namespace ProductionTimeChange
                     GUILayout.Label("s", GUILayout.Width(20));
 
                     // Cột 4: Nút Đặt lại về gốc
-                    if (GUILayout.Button("↺ Gốc", GUILayout.Width(80), GUILayout.Height(24)))
+                    if (GUILayout.Button("↺ Reset", GUILayout.Width(80), GUILayout.Height(24)))
                     {
                         CardTimeManager.ResetEntryToDefault(entry);
-                        SetStatus($"Đã khôi phục mặc định: {entry.DisplayName}");
+                        SetStatus($"Reset to default: {entry.DisplayName}");
                     }
 
                     GUILayout.EndHorizontal();
@@ -257,16 +290,16 @@ namespace ProductionTimeChange
             // 5. THANH ĐIỀU KHIỂN DƯỚI CÙNG & THÔNG BÁO
             GUILayout.BeginHorizontal();
 
-            if (GUILayout.Button("💾 LƯU & ÁP DỤNG", saveButtonStyle, GUILayout.Width(160), GUILayout.Height(34)))
+            if (GUILayout.Button("💾 SAVE & APPLY", saveButtonStyle, GUILayout.Width(160), GUILayout.Height(34)))
             {
                 CardTimeManager.SaveConfig();
-                SetStatus("✔ Đã lưu cấu hình và áp dụng thay đổi thành công!");
+                SetStatus("✔ Configuration saved and applied successfully!");
             }
 
-            if (GUILayout.Button("🔄 Đặt lại tất cả về gốc", resetButtonStyle, GUILayout.Width(170), GUILayout.Height(34)))
+            if (GUILayout.Button("🔄 Reset All to Default", resetButtonStyle, GUILayout.Width(170), GUILayout.Height(34)))
             {
                 CardTimeManager.ResetAllToDefault();
-                SetStatus("✔ Đã khôi phục toàn bộ thẻ về thời gian mặc định!");
+                SetStatus("✔ Reset all cards to default times!");
             }
 
             GUILayout.FlexibleSpace();
@@ -278,7 +311,7 @@ namespace ProductionTimeChange
                 GUI.color = Color.white;
             }
 
-            if (GUILayout.Button("Đóng (P)", GUILayout.Width(90), GUILayout.Height(34)))
+            if (GUILayout.Button("Close", GUILayout.Width(90), GUILayout.Height(34)))
             {
                 IsOpen = false;
             }

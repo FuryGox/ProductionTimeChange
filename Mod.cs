@@ -16,12 +16,13 @@ namespace ProductionTimeChange
 
             try
             {
+                ProductionTimeConfig.Initialize(this);
                 Harmony.PatchAll();
                 Logger.Log("Production Time Manager đã sẵn sàng!");
             }
             catch (Exception ex)
             {
-                Logger.Log($"Lỗi khi patch Harmony: {ex.Message}");
+                Logger.Log($"Lỗi khi khởi tạo mod: {ex.Message}");
             }
         }
 
@@ -38,35 +39,39 @@ namespace ProductionTimeChange
                 }
             }
 
-            // Bắt sự kiện phím P để bật/tắt Panel
-            bool pPressed = false;
+            Key toggleKey = ProductionTimeConfig.ToggleKey;
+            bool togglePressed = false;
             try
             {
-                if (Keyboard.current != null && Keyboard.current[Key.P].wasPressedThisFrame)
+                if (toggleKey != Key.None && Keyboard.current != null && Keyboard.current[toggleKey].wasPressedThisFrame)
                 {
-                    pPressed = true;
+                    togglePressed = true;
                 }
             }
             catch
             {
-                // Fallback nếu new Input System chưa sẵn sàng
+                // Fallback 
             }
 
-            if (!pPressed && InputController.instance != null)
+            if (!togglePressed && toggleKey != Key.None && InputController.instance != null)
             {
                 try
                 {
-                    if (InputController.instance.GetKeyDown(Key.P))
+                    if (InputController.instance.GetKeyDown(toggleKey))
                     {
-                        pPressed = true;
+                        togglePressed = true;
                     }
                 }
                 catch {}
             }
 
-            if (pPressed)
+            if (togglePressed)
             {
-                ProductionTimeUI.Toggle();
+                // Nếu menu đang mở và người chơi đang gõ trong ô tìm kiếm hoặc ô nhập số, không đóng menu
+                if (!ProductionTimeUI.IsOpen || !ProductionTimeUI.IsInputFocused)
+                {
+                    ProductionTimeUI.Toggle();
+                }
             }
 
             ProductionTimeUI.Update();
